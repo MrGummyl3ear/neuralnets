@@ -5,6 +5,7 @@ from copy import deepcopy
 
 from seminar3 import *
 from test_utils import get_preprocessed_data
+import numpy as np
 
 epsilon = 1e-3
 
@@ -49,10 +50,16 @@ class Momentum(Optimizer):
 
 
 class DropoutLayer(Layer):
+    def __init__(self):
+        self.mask = None
+        self.scale = None
+
     def forward(self, x: np.ndarray, train: bool = True) -> np.ndarray:
         if train:
             # TODO zero mask in random X position and scale remains
-            pass
+            self.mask = np.random.randint(0,1,size = x.shape)
+            self.scale = x.shape[1]
+            return self.mask
         else:
             return x
 
@@ -175,7 +182,7 @@ class NeuralNetwork:
         num_classes = np.max(y) + 1
         loss_history = []
         for it in range(num_iters):
-            idxs = np.random.choice(num_classes, batch_size)
+            idxs = np.random.choice(len(x), batch_size)
             X_batch, y_batch = X[idxs], y[idxs]
             # evaluate loss and gradient
             z = self.forward(X_batch)
