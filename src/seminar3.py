@@ -130,7 +130,7 @@ class DenseLayer:
 class TwoLayerNet:
     """ Neural network with two fully connected layers """
 
-    def __init__(self, n_input, n_output, hidden_layer_size, reg=0):
+    def __init__(self, n_input, n_output, hidden_layer_size, reg=0.0):
         """
         Initializes the neural network
         Arguments:
@@ -203,7 +203,7 @@ class TwoLayerNet:
         # Run stochastic gradient descent to optimize W
         loss_history = []
         for it in range(num_iters):
-            idxs = np.random.choice(num_classes, batch_size)
+            idxs = np.random.choice(len(X), batch_size)
             X_batch, y_batch = X[idxs], y[idxs]
             # evaluate loss and gradient
             self.forward(X_batch, y_batch)
@@ -230,16 +230,15 @@ class TwoLayerNet:
 
 def train():
     # TODO 5: Find the best hyperparameters
-    # assert test accuracy > 0.22
-    # weights images must look like in lecture slides
+    # assert test accuracy > 0.33
 
     # ***** START OF YOUR CODE *****
     n_input, n_output = 3072,10
-    hidden = 100
+    hidden = 256
     learning_rate = 0.01
     reg = 1e-2
-    num_iters = 1000
-    batch_size = 10
+    num_iters = 5000
+    batch_size = 64
     # ******* END OF YOUR CODE ************
 
     (x_train, y_train), (x_test, y_test) = get_preprocessed_data(include_bias=False)
