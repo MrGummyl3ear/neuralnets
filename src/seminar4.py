@@ -35,7 +35,7 @@ class Optimizer(ABC):
 class SGD(Optimizer):
     def step(self, w, d_w, learning_rate):
         # TODO Update W with d_W
-        pass
+        w -= learning_rate*d_w
 
 
 class Momentum(Optimizer):
@@ -47,19 +47,22 @@ class Momentum(Optimizer):
         if self.velocity is None:
             self.velocity = np.zeros_like(d_w)
         # TODO Update W with d_W and velocity
+        self.velocity = self.rho*self.velocity+d_w
+        w -= learning_rate*self.velocity
 
 
 class DropoutLayer(Layer):
-    def __init__(self):
+    def __init__(self,p = 0.5):
         self.mask = None
         self.scale = None
+        self.p = p
 
     def forward(self, x: np.ndarray, train: bool = True) -> np.ndarray:
         if train:
             # TODO zero mask in random X position and scale remains
-            self.mask = np.random.randint(0,1,size = x.shape)
-            self.scale = x.shape[1]
-            return self.mask
+            self.mask = np.random.random(size=x.shape) > self.p
+            self.scale = 1 / (1-self.p)
+            return x * self.mask * self.scale
         else:
             return x
 
@@ -69,10 +72,6 @@ class DropoutLayer(Layer):
     def params(self) -> dict:
         return {}
 
-    def __init__(self, p=0.5):
-        self.p = p
-        self.mask = None
-        self.scale = None
 
 
 class BatchNormLayer(Layer):
@@ -110,10 +109,13 @@ class BatchNormLayer(Layer):
         self.num_examples = x.shape[0]
         if train:
             # TODO Compute mean_x and var_x
+            self.mean_x = x.mean(axis=0, keepdims=True)
+            self.var_x = x.var(axis=0, keepdims=True)
             self._update_running_variables()
         else:
             # TODO Copy mean_x and var_x from running variables
-            pass
+            self.mean_x = self.running_mean_x.copy()
+            self.var_x = self.running_var_x.copy()
 
         self.var_x += epsilon
         self.stddev_x = np.sqrt(self.var_x)
@@ -182,7 +184,7 @@ class NeuralNetwork:
         num_classes = np.max(y) + 1
         loss_history = []
         for it in range(num_iters):
-            idxs = np.random.choice(len(x), batch_size)
+            idxs = np.random.choice(len(X), batch_size)
             X_batch, y_batch = X[idxs], y[idxs]
             # evaluate loss and gradient
             z = self.forward(X_batch)
@@ -209,14 +211,49 @@ class NeuralNetwork:
                 model_params[f'layer_{i}_{k}'] = v
         return model_params
 
+    def evaluate(self, X, y):
+        z = self.forward(X)
+        y_predicted = np.argmax(z, axis=1)
+        accuracy = np.mean(y_predicted == y)
+        return accuracy
 
 if __name__ == '__main__':
     """1 point"""
     (x_train, y_train), (x_test, y_test) = get_preprocessed_data(include_bias=False)
     # Train your neural net!
     n_input, n_output, n_hidden = 3072, 10, 256
+    learning_rate = 0.01
+    num_iters = 2000
+    batch_size = 64
     neural_net = NeuralNetwork([DenseLayer(n_input, n_hidden),
                                 DropoutLayer(0.5),
                                 BatchNormLayer(n_hidden),
                                 ReLULayer(),
                                 DenseLayer(n_hidden, n_output)])
+    neural_net.setup_optimizer(Momentum())
+    t0 = datetime.datetime.now()
+    loss_history = neural_net.fit(x_train, y_train, learning_rate, num_iters, batch_size, verbose=True)
+    t1 = datetime.datetime.now()
+    dt = t1 - t0
+
+    report = f"""# Training Softmax classifier  
+datetime: {t1.isoformat(' ', 'seconds')}  
+Well done in: {dt.seconds} seconds  
+learning_rate = {learning_rate}  
+num_iters = {num_iters}  
+batch_size = {batch_size}  
+
+Final loss: {loss_history[-1]}   
+Train accuracy: {neural_net.evaluate(x_train, y_train)}   
+Test accuracy: {neural_net.evaluate(x_test, y_test)}  
+
+<img src="loss.png">
+"""
+
+    print(report)
+
+    out_dir = 'output/seminar4'
+    report_path = os.path.join(out_dir, 'report.md')
+    with open(report_path, 'w') as f:
+        f.write(report)
+    visualize_loss(loss_history, out_dir)
