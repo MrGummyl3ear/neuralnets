@@ -6,6 +6,7 @@ import shutil
 from urllib.request import urlretrieve
 
 import tensorflow as tf
+import keras
 import boto3
 import dotenv
 
@@ -35,57 +36,53 @@ def download_data():
 
 
 def make_model(input_shape, num_classes):
-    inputs = tf.keras.Input(shape=input_shape)
+    inputs = keras.Input(shape=input_shape)
 
-    x = tf.keras.layers.Rescaling(1.0 / 255)(inputs)
-    x = tf.keras.layers.Conv2D(128, 3, strides=2, padding="same")(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.Activation("relu")(x)
+    x = keras.layers.Rescaling(1.0 / 255)(inputs)
+    x = keras.layers.Conv2D(128, 3, strides=2, padding="same")(x)
+    x = keras.layers.BatchNormalization()(x)
+    x = keras.layers.Activation("relu")(x)
 
     previous_block_activation = x  # Set aside residual
 
     for size in [256, 512, 728]:
-        x = tf.keras.layers.Activation("relu")(x)
-        x = tf.keras.layers.SeparableConv2D(size, 3, padding="same")(x)
-        x = tf.keras.layers.BatchNormalization()(x)
+        x = keras.layers.Activation("relu")(x)
+        x = keras.layers.SeparableConv2D(size, 3, padding="same")(x)
+        x = keras.layers.BatchNormalization()(x)
 
-        x = tf.keras.layers.Activation("relu")(x)
-        x = tf.keras.layers.SeparableConv2D(size, 3, padding="same")(x)
-        x = tf.keras.layers.BatchNormalization()(x)
+        x = keras.layers.Activation("relu")(x)
+        x = keras.layers.SeparableConv2D(size, 3, padding="same")(x)
+        x = keras.layers.BatchNormalization()(x)
 
-        x = tf.keras.layers.MaxPooling2D(3, strides=2, padding="same")(x)
+        x = keras.layers.MaxPooling2D(3, strides=2, padding="same")(x)
 
         # Project residual
-        residual = tf.keras.layers.Conv2D(size, 1, strides=2, padding="same")(
+        residual = keras.layers.Conv2D(size, 1, strides=2, padding="same")(
             previous_block_activation
         )
-        x = tf.keras.layers.add([x, residual])  # Add back residual
+        x = keras.layers.add([x, residual])  # Add back residual
         previous_block_activation = x  # Set aside next residual
 
-    x = tf.keras.layers.SeparableConv2D(1024, 3, padding="same")(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.Activation("relu")(x)
+    x = keras.layers.SeparableConv2D(1024, 3, padding="same")(x)
+    x = keras.layers.BatchNormalization()(x)
+    x = keras.layers.Activation("relu")(x)
 
-    x = tf.keras.layers.GlobalAveragePooling2D()(x)
-    if num_classes == 2:
-        units = 1
-    else:
-        units = num_classes
+    x = keras.layers.GlobalAveragePooling2D()(x)
 
-    x = tf.keras.layers.Dropout(0.5)(x)
-    outputs = tf.keras.layers.Dense(units, activation=None)(x)
-    return tf.keras.keras.Model(inputs, outputs)
+    x = keras.layers.Dropout(0.5)(x)
+    outputs = keras.layers.Dense(1, activation="sigmoid")(x)
+    return keras.Model(inputs, outputs)
 
 
 def train():
     """Pipeline: Build, train and save model to models/model_6"""
     # Todo: Copy some code from seminar5 and https://keras.io/examples/vision/image_classification_from_scratch/
     print('Training model')
-    epochs = 10
+    epochs = 1
     batch_size = 64
-    image_size = (180,180)
+    image_size = (180, 180)
 
-    train_ds, val_ds = tf.keras.utils.image_dataset_from_directory(
+    train_ds, val_ds = keras.utils.image_dataset_from_directory(
         PATH_TO_DATA+"/PetImages",
         validation_split=0.2,
         subset="both",
@@ -94,10 +91,10 @@ def train():
         batch_size=batch_size,
     )
 
-    model = make_model(image_size,2)
-    model.compile(optimizer=tf.keras.optimizers.Adam(),
-                  loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-                  metrics=[tf.keras.metrics.SparseCategoricalAccuracy()])
+    model = make_model(image_size+(3,), 2)
+    model.compile(optimizer=keras.optimizers.Adam(),
+                  loss=keras.losses.BinaryCrossentropy(),
+                  metrics=[keras.metrics.Precision(thresholds=0.5)])
     model.fit(train_ds, epochs=epochs, validation_data=val_ds)
     model.save(PATH_TO_MODEL)
 
