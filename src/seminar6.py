@@ -78,7 +78,7 @@ def train():
     """Pipeline: Build, train and save model to models/model_6"""
     # Todo: Copy some code from seminar5 and https://keras.io/examples/vision/image_classification_from_scratch/
     print('Training model')
-    epochs = 1
+    epochs = 5
     batch_size = 64
     image_size = (180, 180)
 
